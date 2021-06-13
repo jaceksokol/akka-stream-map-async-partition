@@ -1,12 +1,13 @@
 package com.github.jaceksokol.akka.stream
 
 import java.util.concurrent.Executors
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Future, blocking}
 
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.Behaviors
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.KillSwitches
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.github.jaceksokol.akka.stream.TestData._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
@@ -36,7 +37,7 @@ class MapAsyncPartitionSpec
   }
 
   it should "process elements in parallel by partition" in {
-    val elements = Iterator(
+    val elements = List(
       TestKeyValue(key = 1, delay = 1000 millis, value = "1.a"),
       TestKeyValue(key = 2, delay = 700 millis, value = "2.a"),
       TestKeyValue(key = 1, delay = 500 millis, value = "1.b"),
@@ -45,8 +46,7 @@ class MapAsyncPartitionSpec
     )
 
     val result =
-      Source
-        .fromIterator(() => elements)
+      Source(elements)
         .mapAsyncPartition(parallelism = 2, bufferSize = 4)(extractPartition)(blockingOperation)
         .runWith(Sink.seq)
         .futureValue
@@ -58,8 +58,7 @@ class MapAsyncPartitionSpec
   it should "process elements in parallel preserving order in partition" in {
     forAll(minSuccessful(1000)) { (bufferSize: BufferSize, parallelism: Parallelism, elements: Seq[TestKeyValue]) =>
       val result =
-        Source
-          .fromIterator(() => elements.iterator)
+        Source(elements)
           .mapAsyncPartition(parallelism.value, bufferSize.value)(extractPartition)(asyncOperation)
           .runWith(Sink.seq)
           .futureValue
@@ -101,6 +100,47 @@ class MapAsyncPartitionSpec
 
       actual shouldBe expected
     }
+  }
+
+  it should "stop the stream via a KillSwitch" in {
+    val (killSwitch, future) =
+      Source(LazyList.from(1))
+        .mapAsyncPartition(parallelism = 6)(i => (i % 6).toString) { i =>
+          Future {
+            blocking {
+              Thread.sleep(40)
+              (i % 6).toString -> i.toString
+            }
+          }
+        }
+        .viaMat(KillSwitches.single)(Keep.right)
+        .toMat(Sink.seq)(Keep.both)
+        .run()
+
+    Thread.sleep(500)
+
+    killSwitch.shutdown()
+
+    val result = future.futureValue.groupBy(_._1)
+    result should have size 6
+    result.values.foreach {
+      _.size should be >= 10
+    }
+  }
+
+  it should "stop the stream if any operation fail" in {
+    val future =
+      Source(LazyList.from(1))
+        .mapAsyncPartition(parallelism = 4)(i => (i % 8).toString) { i =>
+          Future {
+            if (i == 23) throw new RuntimeException("Ignore it")
+            else i.toString
+          }
+        }
+        .toMat(Sink.ignore)(Keep.right)
+        .run()
+
+    future.failed.futureValue shouldBe a[RuntimeException]
   }
 
 }

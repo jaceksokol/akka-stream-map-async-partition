@@ -1,9 +1,21 @@
 name := "akka-stream-map-async-partition"
 
 ThisBuild / organization := "com.github.jaceksokol"
-ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := "2.13.6"
 ThisBuild / versionScheme := Some("semver-spec")
+
+publishMavenStyle := true
+homepage := Some(url("https://github.com/jaceksokol/akka-stream-map-async-partition"))
+scmInfo := Some(
+  ScmInfo(
+    url("https://github.com/jaceksokol/akka-stream-map-async-partition"),
+    "scm:git@github.com:jaceksokol/akka-stream-map-async-partition.git"
+  )
+)
+developers := List(
+  Developer("jaceksokol", "Jacek Sokół", "jacek@scalabs.pl", url("https://github.com/jaceksokol"))
+)
+licenses := Seq("MIT" -> url("https://opensource.org/licenses/MIT"))
 
 scalacOptions ++= Seq(
   "-encoding",
@@ -25,10 +37,15 @@ libraryDependencies ++= Seq(
 
 credentials += Credentials(Path.userHome / ".sbt" / ".credentials")
 
+releaseUseGlobalVersion := false
+releaseIgnoreUntrackedFiles := true
+releasePublishArtifactsAction := PgpKeys.publishSigned.value
+publishConfiguration := publishConfiguration.value.withOverwrite(true)
+
 publishTo := {
   val nexus = "https://oss.sonatype.org/"
   if (isSnapshot.value)
     Some("snapshots" at nexus + "content/repositories/snapshots")
   else
-    Some("releases" at nexus + "content/repositories/releases")
+    Some("releases" at nexus + "service/local/staging/deploy/maven2")
 }

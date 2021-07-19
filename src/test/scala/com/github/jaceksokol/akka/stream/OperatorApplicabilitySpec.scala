@@ -27,7 +27,7 @@ class OperatorApplicabilitySpec extends AnyFlatSpec with Matchers with ScalaFutu
   it should "be applicable to a source" in {
     Source
       .single(3)
-      .mapAsyncPartition(parallelism = 1)(_.toString)(f)
+      .mapAsyncPartition(parallelism = 1)(identity)(f)
       .runWith(Sink.seq)
       .futureValue shouldBe Seq(1)
   }
@@ -35,14 +35,14 @@ class OperatorApplicabilitySpec extends AnyFlatSpec with Matchers with ScalaFutu
   it should "be applicable to a source with context" in {
     SourceWithContext
       .fromTuples(Source.single(3 -> "A"))
-      .mapAsyncPartition(parallelism = 1)(_.toString)(f)
+      .mapAsyncPartition(parallelism = 1)(identity)(f)
       .runWith(Sink.seq)
       .futureValue shouldBe Seq(1 -> "A")
   }
 
   it should "be applicable to a flow" in {
     Flow[Int]
-      .mapAsyncPartition(parallelism = 1)(_.toString)(f)
+      .mapAsyncPartition(parallelism = 1)(identity)(f)
       .runWith(Source.single(3), Sink.seq)
       ._2
       .futureValue shouldBe Seq(1)
@@ -51,7 +51,7 @@ class OperatorApplicabilitySpec extends AnyFlatSpec with Matchers with ScalaFutu
   it should "be applicable to a flow with context" in {
     val flow =
       FlowWithContext[Int, String]
-        .mapAsyncPartition(parallelism = 1)(_.toString)(f)
+        .mapAsyncPartition(parallelism = 1)(identity)(f)
 
     SourceWithContext
       .fromTuples(Source.single(3 -> "A"))

@@ -105,7 +105,7 @@ class MapAsyncPartitionSpec
   it should "stop the stream via a KillSwitch" in {
     val (killSwitch, future) =
       Source(LazyList.from(1))
-        .mapAsyncPartition(parallelism = 6)(i => (i % 6).toString) { i =>
+        .mapAsyncPartition(parallelism = 6)(i => i % 6) { i =>
           Future {
             blocking {
               Thread.sleep(40)
@@ -131,7 +131,7 @@ class MapAsyncPartitionSpec
   it should "stop the stream if any operation fail" in {
     val future =
       Source(LazyList.from(1))
-        .mapAsyncPartition(parallelism = 4)(i => (i % 8).toString) { i =>
+        .mapAsyncPartition(parallelism = 4)(i => i % 8) { i =>
           Future {
             if (i == 23) throw new RuntimeException("Ignore it")
             else i.toString

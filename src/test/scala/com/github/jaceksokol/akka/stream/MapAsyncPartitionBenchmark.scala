@@ -46,7 +46,7 @@ object MapAsyncPartitionBenchmark extends AnyFlatSpec with ScalaFutures {
     elements: Seq[TestKeyValue],
     operation: OperationDefinition
   ) {
-    override def toString: Partition = s"$bufferSize, $parallelism, Elements(${elements.size}, $operation)"
+    override def toString: String = s"$bufferSize, $parallelism, Elements(${elements.size}, $operation)"
   }
 
   private val TestCases = Seq(

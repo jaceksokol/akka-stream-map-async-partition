@@ -11,7 +11,7 @@ import akka.stream._
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import Holder.NotYetThere
 
-class MapAsyncPartition[In, Out](
+class MapAsyncPartition[In, Out, Partition](
   parallelism: Int,
   bufferSize: Int,
   extractPartition: In => Partition,

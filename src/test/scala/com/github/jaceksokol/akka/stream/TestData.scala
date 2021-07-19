@@ -38,8 +38,8 @@ object TestData {
       )
     }
 
-  def extractPartition(e: TestKeyValue): Partition =
-    e.key.toString
+  def extractPartition(e: TestKeyValue): Int =
+    e.key
 
   type Operation = TestKeyValue => Future[(Int, String)]
 

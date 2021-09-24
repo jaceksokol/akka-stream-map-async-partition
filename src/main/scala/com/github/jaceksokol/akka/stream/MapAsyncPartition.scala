@@ -28,10 +28,29 @@ class MapAsyncPartition[In, Out, Partition](
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
     new GraphStageLogic(shape) with InHandler with OutHandler {
 
+      private val contextPropagation = akka.stream.impl.ContextPropagation()
+
+      private case class Contextual[T](context: AnyRef, element: T) {
+        private var suspended = false
+
+        def suspend(): Unit =
+          if (!suspended) {
+            suspended = true
+            contextPropagation.suspendContext()
+          }
+
+        def resume(): Unit =
+          if (suspended) {
+            suspended = false
+            contextPropagation.resumeContext(context)
+          }
+
+      }
+
       private lazy val decider = inheritedAttributes.mandatoryAttribute[SupervisionStrategy].decider
 
-      private var inProgress: mutable.Map[Partition, Holder[Out]] = _
-      private var waiting: mutable.Queue[(Partition, In)] = _
+      private var inProgress: mutable.Map[Partition, Contextual[Holder[Out]]] = _
+      private var waiting: mutable.Queue[(Partition, Contextual[In])] = _
 
       private val futureCB = getAsyncCallback[Holder[Out]](holder =>
         holder.elem match {
@@ -55,8 +74,8 @@ class MapAsyncPartition[In, Out, Partition](
 
       override def onPush(): Unit = {
         try {
-          val element = grab(in)
-          val partition = extractPartition(element)
+          val element = Contextual(contextPropagation.currentContext(), grab(in))
+          val partition = extractPartition(element.element)
 
           if (inProgress.contains(partition) || inProgress.size >= parallelism) {
             waiting.enqueue(partition -> element)
@@ -73,10 +92,10 @@ class MapAsyncPartition[In, Out, Partition](
       override def onUpstreamFinish(): Unit =
         if (idle()) completeStage()
 
-      private def processElement(partition: Partition, element: In): Unit = {
-        val future = f(element)
+      private def processElement(partition: Partition, element: Contextual[In]): Unit = {
+        val future = f(element.element)
         val holder = new Holder[Out](NotYetThere, futureCB)
-        inProgress.put(partition, holder)
+        inProgress.put(partition, Contextual(element.context, holder))
 
         future.value match {
           case None    => future.onComplete(holder)(scala.concurrent.ExecutionContext.parasitic)
@@ -97,12 +116,15 @@ class MapAsyncPartition[In, Out, Partition](
           drainQueue()
           pullIfNeeded()
         } else if (isAvailable(out)) {
-          inProgress.filterInPlace { case (_, holder) =>
-            if ((holder.elem eq NotYetThere) || !isAvailable(out)) true
+          inProgress.filterInPlace { case (_, ctx@Contextual(_, holder)) =>
+            if ((holder.elem eq NotYetThere) || !isAvailable(out)) {
+              true
+            }
             else {
               holder.elem match {
                 case Success(elem) =>
                   if (elem != null) {
+                    ctx.resume()
                     push(out, elem)
                     pullIfNeeded()
                   } else {
@@ -127,12 +149,13 @@ class MapAsyncPartition[In, Out, Partition](
             }
           }
           drainQueue()
-        }
+        } else
+          inProgress.values.foreach(_.suspend())
 
       private def drainQueue(): Unit = {
         if (waiting.nonEmpty) {
           val todo = waiting
-          waiting = mutable.Queue[(Partition, In)]()
+          waiting = mutable.Queue[(Partition, Contextual[In])]()
 
           todo.foreach { case (partition, element) =>
             if (inProgress.size >= parallelism || inProgress.contains(partition)) {

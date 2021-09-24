@@ -27,7 +27,7 @@ scalacOptions ++= Seq(
   "-language:postfixOps"
 )
 
-val AkkaVersion = "2.6.14"
+val AkkaVersion = "2.6.16"
 
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-stream-typed" % AkkaVersion,

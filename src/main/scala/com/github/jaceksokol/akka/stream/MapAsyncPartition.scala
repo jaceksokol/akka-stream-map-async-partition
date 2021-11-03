@@ -76,6 +76,7 @@ class MapAsyncPartition[In, Out, Partition](
         try {
           val element = Contextual(contextPropagation.currentContext(), grab(in))
           val partition = extractPartition(element.element)
+          element.suspend()
 
           if (inProgress.contains(partition) || inProgress.size >= parallelism) {
             waiting.enqueue(partition -> element)
@@ -149,8 +150,7 @@ class MapAsyncPartition[In, Out, Partition](
             }
           }
           drainQueue()
-        } else
-          inProgress.values.foreach(_.suspend())
+        }
 
       private def drainQueue(): Unit = {
         if (waiting.nonEmpty) {

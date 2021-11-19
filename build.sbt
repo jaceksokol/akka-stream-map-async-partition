@@ -1,7 +1,7 @@
 name := "akka-stream-map-async-partition"
 
 ThisBuild / organization := "com.github.jaceksokol"
-ThisBuild / scalaVersion := "2.13.6"
+ThisBuild / scalaVersion := "2.13.7"
 ThisBuild / versionScheme := Some("semver-spec")
 
 publishMavenStyle := true
@@ -27,7 +27,7 @@ scalacOptions ++= Seq(
   "-language:postfixOps"
 )
 
-val AkkaVersion = "2.6.16"
+val AkkaVersion = "2.6.17"
 
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-stream-typed" % AkkaVersion,

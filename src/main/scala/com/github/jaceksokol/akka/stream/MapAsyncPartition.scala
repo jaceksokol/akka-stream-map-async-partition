@@ -76,9 +76,9 @@ class MapAsyncPartition[In, Out, Partition](
         try {
           val element = Contextual(contextPropagation.currentContext(), grab(in))
           val partition = extractPartition(element.element)
-          element.suspend()
 
           if (inProgress.contains(partition) || inProgress.size >= parallelism) {
+            element.suspend()
             waiting.enqueue(partition -> element)
           } else {
             processElement(partition, element)
@@ -125,7 +125,6 @@ class MapAsyncPartition[In, Out, Partition](
               holder.elem match {
                 case Success(elem) =>
                   if (elem != null) {
-                    ctx.resume()
                     push(out, elem)
                     pullIfNeeded()
                   } else {
@@ -161,6 +160,7 @@ class MapAsyncPartition[In, Out, Partition](
             if (inProgress.size >= parallelism || inProgress.contains(partition)) {
               waiting.enqueue(partition -> element)
             } else {
+              element.resume()
               processElement(partition, element)
             }
           }
